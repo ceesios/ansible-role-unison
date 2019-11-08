@@ -1,0 +1,58 @@
+---
+
+- name: Install unison
+  package:
+      name: unison
+  tags: unison
+
+- name: create ssh keypair for unison
+  openssh_keypair:
+    path: "{{ unison.homedir | default('/root') }}/.ssh/unison_rsa"
+    owner: "{{ unison.user | default('root') }}"
+  when: unison.state == "master"
+  register: master_key
+  tags: unison
+
+- name: Add pubkey to authorized_key file
+  authorized_key:
+    user: "{{ unison.user | default('root') }}"
+    state: present
+    key: "{{ master_key.public_key }}"
+  delegate_to: "{{ unison.slave_inventory_name }}"
+  when: unison.state == 'master'
+  tags: unison
+
+# Dit moet nog even netter ipv de ssh config te overschrijven
+- name: template unison ssh configuration
+  template:
+    src: ssh_config.j2
+    dest: "{{ unison.homedir | default('/root') }}/.ssh/config"
+    backup: yes
+  when: unison is defined and unison.state == 'master'
+  tags: unison
+
+- name: Create unison config folder
+  file:
+    path: "{{ unison.homedir | default('/root') }}/.unison/"
+    state: directory
+    owner: "{{ unison.user | default('root') }}"
+  when: unison.state == 'master'
+  tags: unison
+
+- name: template unison configuration
+  template:
+    src: job.prf.j2
+    dest: "{{ unison.homedir | default('/root') }}/.unison/{{ item.name }}.prf"
+  with_items: "{{ unison.job }}"
+  when: unison.state == 'master'
+  tags: unison
+
+- name: set cronjobs
+  cron:
+    user: "{{ unison.user | default('root') }}"
+    name: "Unison job for {{ item.name }}"
+    job: "/usr/bin/flock -n /tmp/unison.{{ item.name }}.lockfile /usr/bin/unison {{ item.name }} > /dev/null 2>&1"
+    backup: yes
+  when: unison.state == 'master'
+  with_items: "{{ unison.job }}"
+  tags: unison

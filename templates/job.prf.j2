@@ -1,0 +1,26 @@
+# Build by ansible, please do not edit manually
+# Unison preferences file {{ item.name }}
+# Roots of the synchronization
+root = {{ item.dir }}
+root = ssh://{{ unison.slave_ip }}/{{ item.dir }}
+
+{% if item.ignoredpaths is defined %}
+{% for ignoredpath in item.ignoredpaths %}
+ignore = Path {{ ignoredpath }}
+{% endfor %}
+{% endif %}
+
+ignore = Name {*.git}
+ignore = Name {*.log}
+ignore = Name {*.tmp}
+ignore = Name {*.cache}
+ignore = Name {*.Cache}
+ignore = Name {*.Caches}
+
+auto=true
+batch=true
+fastcheck=true
+group=true
+owner=true
+prefer=newer
+times=true
